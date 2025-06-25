@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flaury_mobile/app/util/api_routes.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:logger/web.dart';
 
 final dioServiceProvider = Provider<DioService>(
   (ref) => DioService.instance,
@@ -11,7 +10,6 @@ class DioService {
   DioService._();
 
   static final instance = DioService._();
-  final logger = Logger();
 
   final Dio _dio = Dio(BaseOptions(
     baseUrl: ApiRoutes.baseUrl,
@@ -24,20 +22,6 @@ class DioService {
 
   static Options headers(String? sessionToken) =>
       Options(headers: {"Authorization": '$sessionToken'});
-
-  void _logRequest(String method, String path,
-      {Object? data, Map<String, dynamic>? query, Options? options}) {
-    logger.i("📤 [$method] Request to: $path");
-    if (query != null) logger.i("🔎 Query: $query");
-    if (data != null) logger.i("📦 Data: $data");
-    if (options?.headers != null) logger.i("🧾 Headers: ${options!.headers}");
-  }
-
-  void _logResponse(Response response) {
-    logger.i(
-        "✅ Response [${response.statusCode}] from ${response.requestOptions.path}");
-    logger.i("📨 Response data: ${response.data}");
-  }
 
   Future<Map<String, dynamic>> _handleResponse(Response response) async {
     final statusCode = response.statusCode;
@@ -54,6 +38,13 @@ class DioService {
       throw CustomException('Invalid response format');
     }
 
+    // Custom error handling
+    if (data is Map<String, dynamic>) {
+      final errorMessage = "something went wrong ${response.data.toString()}";
+      throw CustomException(errorMessage);
+    }
+
+    // Fallbacks
     switch (statusCode) {
       case 400:
         throw CustomException('Bad Request');
@@ -68,10 +59,7 @@ class DioService {
       case 500:
         throw CustomException('Internal Server Error');
       default:
-        final errorMessage = data is Map<String, dynamic>
-            ? data['message']?.toString()
-            : 'Request failed with status $statusCode';
-        throw CustomException(errorMessage ?? 'Unknown error occurred');
+        throw CustomException('Unknown error occurred');
     }
   }
 
@@ -85,9 +73,6 @@ class DioService {
       String? sessionToken}) async {
     try {
       final opts = options ?? headers(sessionToken);
-      _logRequest('GET', path,
-          data: data, query: queryParameters, options: opts);
-
       final response = await _dio.get(
         path,
         queryParameters: queryParameters,
@@ -96,14 +81,18 @@ class DioService {
         onReceiveProgress: onReceiveProgress,
         options: opts,
       );
-
-      _logResponse(response);
       return await _handleResponse(response);
     } on DioException catch (e) {
-      logger.e("❌ Dio GET error: ${e.message}");
+      final response = e.response?.data;
+      if (response is Map<String, dynamic>) {
+        final message = response['error details']?.toString() ??
+            response['response description']?.toString() ??
+            response['message']?.toString() ??
+            'Network error occurred';
+        throw CustomException(message);
+      }
       throw CustomException(e.message ?? 'Network error occurred');
     } catch (e) {
-      logger.e("❗ Unexpected GET error: $e");
       throw CustomException('An unexpected error occurred');
     }
   }
@@ -119,9 +108,6 @@ class DioService {
       String? sessionToken}) async {
     try {
       final opts = options ?? headers(sessionToken);
-      _logRequest('POST', path,
-          data: data, query: queryParameters, options: opts);
-
       final response = await _dio.post(
         path,
         data: data,
@@ -131,14 +117,8 @@ class DioService {
         onReceiveProgress: onReceiveProgress,
         options: opts,
       );
-
-      _logResponse(response);
       return await _handleResponse(response);
-    } on DioException catch (e) {
-      logger.e("❌ Dio POST error: ${e.message}");
-      throw CustomException(e.message ?? 'Network error occurred');
     } catch (e) {
-      logger.e("❗ Unexpected POST error: $e");
       throw CustomException('An unexpected error occurred');
     }
   }
@@ -155,9 +135,6 @@ class DioService {
     try {
       final opts = option ?? headers(sessionToken);
       final requestData = payload ?? data;
-      _logRequest('PUT', path,
-          data: requestData, query: queryParameters, options: opts);
-
       final response = await _dio.put(
         path,
         data: requestData,
@@ -165,14 +142,8 @@ class DioService {
         onReceiveProgress: onReceiveProgress,
         options: opts,
       );
-
-      _logResponse(response);
       return await _handleResponse(response);
-    } on DioException catch (e) {
-      logger.e("❌ Dio PUT error: ${e.message}");
-      throw CustomException(e.message ?? 'Network error occurred');
     } catch (e) {
-      logger.e("❗ Unexpected PUT error: $e");
       throw CustomException('An unexpected error occurred');
     }
   }
@@ -188,23 +159,14 @@ class DioService {
     try {
       final opts = option ?? headers(sessionToken);
       final requestData = payload ?? data;
-      _logRequest('DELETE', path,
-          data: requestData, query: queryParameters, options: opts);
-
       final response = await _dio.delete(
         path,
         data: requestData,
         cancelToken: cancelToken,
         options: opts,
       );
-
-      _logResponse(response);
       return await _handleResponse(response);
-    } on DioException catch (e) {
-      logger.e("❌ Dio DELETE error: ${e.message}");
-      throw CustomException(e.message ?? 'Network error occurred');
     } catch (e) {
-      logger.e("❗ Unexpected DELETE error: $e");
       throw CustomException('An unexpected error occurred');
     }
   }

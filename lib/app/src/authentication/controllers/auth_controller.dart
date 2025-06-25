@@ -100,7 +100,8 @@ class AuthController extends StateNotifier<AuthState> {
       await _authTokenManager.saveRefreshAuthToken(response.refreshToken);
       state = AuthState.success(response.responseDescription);
     } catch (e) {
-      state = AuthState.error(e.toString());
+      state = AuthState.error(
+          'An error occurred, your email or password is incorrect');
     }
   }
 

@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flaury_mobile/app/src/authentication/models/login_response_model.dart';
 import 'package:flaury_mobile/app/src/authentication/models/register_user_model.dart';
 import 'package:flaury_mobile/app/src/authentication/models/user_model.dart';
@@ -38,49 +37,14 @@ class AuthRepositoryImpl implements AuthRepository {
 
       final response = await _dioService.post(ApiRoutes.signUp, data: data);
 
-      // Print the full response for debugging
-      debugPrint("🚀 Response: $response");
-
-      // Check required fields
-      if (response.isEmpty ||
-          response['response status'] == null ||
-          response['response description'] == null) {
-        throw CustomException("Invalid server response format");
-      }
-
-      // Parse the response into your model
       final registerResponse = RegisterResponse.fromJson(response);
 
-      // If API returned an error status, throw a custom exception
-      if (registerResponse.status.toLowerCase() == "error") {
-        final errorMessage = registerResponse.errorDetails ??
-            registerResponse.message ??
-            "Registration failed";
-        throw CustomException(_getUserFriendlyError(errorMessage));
+      if (registerResponse.message != "success") {
+        throw CustomException(
+            registerResponse.message ?? "Registration failed");
       }
 
-      // ✅ All good, return the successful response
       return registerResponse;
-    } on DioException catch (e) {
-      debugPrint("⛔ Dio error: ${e.response?.data ?? e.message}");
-
-      // Attempt to parse the error body from Dio
-      if (e.response?.data != null) {
-        try {
-          final errorResponse = RegisterResponse.fromJson(e.response!.data);
-          final errorMessage = errorResponse.errorDetails ??
-              errorResponse.message ??
-              "Registration failed";
-          throw CustomException(_getUserFriendlyError(errorMessage));
-        } catch (_) {
-          // Parsing failed, fallback to generic error
-          throw CustomException(_getNetworkError(e));
-        }
-      } else {
-        throw CustomException(_getNetworkError(e));
-      }
-    } on CustomException catch (e) {
-      throw Exception(e.message);
     } catch (e, s) {
       debugPrint("❗ Unexpected error: $e");
       debugPrint(s.toString());
@@ -278,30 +242,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 }
 
-String _getNetworkError(DioException e) {
-  if (e.type == DioExceptionType.connectionTimeout ||
-      e.type == DioExceptionType.receiveTimeout ||
-      e.type == DioExceptionType.sendTimeout) {
-    return "Connection timeout. Please check your internet and try again";
-  } else if (e.type == DioExceptionType.connectionError) {
-    return "No internet connection. Please check your network";
-  } else if (e.response?.statusCode == 500) {
-    return "Server error. Please try again later";
-  }
-  return "Network error occurred. Please try again";
-}
-
 // Helper method to translate server errors to user-friendly messages
-String _getUserFriendlyError(String serverError) {
-  const errorMap = {
-    "Email already registered": "This email is already in use",
-    "Invalid email format": "Please enter a valid email address",
-    "Password too weak": "Password must be at least 8 characters long",
-    // Add more mappings as needed
-  };
-
-  return errorMap[serverError] ?? serverError;
-}
 
 abstract class AuthRepository {
   Future<RegisterResponse> signUp(

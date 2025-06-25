@@ -99,7 +99,7 @@ class _RegisterCustomerViewState extends ConsumerState<RegisterCustomerView> {
 
                     //name textfield
                     AuthTextfield(
-                      hintext: 'Becca Braunch',
+                      hintext: 'Enter your Full Name',
                       obscureText: false,
                       validator: Validator.nameValidator,
                       controller: _namecontroller,
@@ -111,7 +111,7 @@ class _RegisterCustomerViewState extends ConsumerState<RegisterCustomerView> {
                     ),
 
                     AuthTextfield(
-                      hintext: 'Beccy_Braunch',
+                      hintext: 'Enter your Username',
                       obscureText: false,
                       validator: Validator.nameValidator,
                       controller: _usernamecontroller,
